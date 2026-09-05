@@ -8,6 +8,7 @@ session span itself ends, writes a human-readable summary file next to it.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
@@ -59,14 +60,64 @@ class SummaryFileExporter(SpanExporter):
         return None
 
 
-def build_tracer(exporter: SpanExporter | None = None) -> tuple[Tracer, SpanExporter]:
-    """Build a fresh tracer + exporter pair for one session.
+class JsonFileExporter(SpanExporter):
+    """Collects every span (raw) and writes the full span tree as JSON once
+    the session span ends -- the un-curated counterpart to
+    :class:`SummaryFileExporter`, useful for debugging or feeding into
+    another tracing tool.
+    """
 
-    A fresh :class:`TracerProvider` per session keeps sessions from leaking
-    accumulated round spans into each other via a shared exporter instance.
+    def __init__(self) -> None:
+        self._spans: list[ReadableSpan] = []
+
+    def export(self, spans: list[ReadableSpan]) -> SpanExportResult:
+        for span in spans:
+            self._spans.append(span)
+            if span.name == SESSION_SPAN_NAME:
+                self._write_json(span)
+        return SpanExportResult.SUCCESS
+
+    def _write_json(self, session_span: ReadableSpan) -> None:
+        attrs = session_span.attributes or {}
+        file_path = attrs.get("spans.file_path")
+        if not file_path:
+            return
+        path = Path(str(file_path))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = [self._span_to_dict(span) for span in self._spans]
+        path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    @staticmethod
+    def _span_to_dict(span: ReadableSpan) -> dict:
+        ctx = span.get_span_context()
+        parent = span.parent
+        return {
+            "name": span.name,
+            "trace_id": format(ctx.trace_id, "032x") if ctx else None,
+            "span_id": format(ctx.span_id, "016x") if ctx else None,
+            "parent_span_id": format(parent.span_id, "016x") if parent else None,
+            "start_time_ns": span.start_time,
+            "end_time_ns": span.end_time,
+            "duration_ns": (span.end_time - span.start_time if span.start_time and span.end_time else None),
+            "attributes": dict(span.attributes or {}),
+            "status": span.status.status_code.name if span.status else None,
+        }
+
+    def shutdown(self) -> None:  # pragma: no cover - nothing to release
+        return None
+
+
+def build_tracer(exporters: list[SpanExporter] | None = None) -> tuple[Tracer, list[SpanExporter]]:
+    """Build a fresh tracer + exporters set for one session.
+
+    Defaults to both :class:`SummaryFileExporter` (human-readable) and
+    :class:`JsonFileExporter` (raw span dump). A fresh :class:`TracerProvider`
+    per session keeps sessions from leaking accumulated round spans into
+    each other via shared exporter instances.
     """
     provider = TracerProvider()
-    exporter = exporter or SummaryFileExporter()
-    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    exporters = exporters if exporters is not None else [SummaryFileExporter(), JsonFileExporter()]
+    for exporter in exporters:
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
     tracer = provider.get_tracer("cat_sage")
-    return tracer, exporter
+    return tracer, exporters

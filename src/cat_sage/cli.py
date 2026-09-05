@@ -29,7 +29,7 @@ def slugify(text: str, max_words: int = 8, max_len: int = 60) -> str:
 
 
 def run(question: str, *, output_dir: Path = OUTPUT_DIR) -> dict:
-    tracer, _exporter = build_tracer()
+    tracer, _exporters = build_tracer()
     cat, sage, judge = CatAgent(), SageAgent(), JudgeAgent()
     log = ConversationLog()
 
@@ -37,12 +37,14 @@ def run(question: str, *, output_dir: Path = OUTPUT_DIR) -> dict:
     slug = slugify(question)
     summary_path = output_dir / f"cat_sage_{slug}_{timestamp}.txt"
     conversation_path = output_dir / f"cat_sage_{slug}_{timestamp}_conversation.txt"
+    spans_path = output_dir / f"cat_sage_{slug}_{timestamp}_spans.json"
 
     graph = build_graph(cat=cat, sage=sage, judge=judge, tracer=tracer, log=log)
 
     with tracer.start_as_current_span("cat_sage.session") as session_span:
         session_span.set_attribute("session.question", question)
         session_span.set_attribute("summary.file_path", str(summary_path))
+        session_span.set_attribute("spans.file_path", str(spans_path))
         final_state = graph.invoke(initial_state(question), config={"recursion_limit": 50})
         session_span.set_attribute("session.total_rounds", len(final_state["history"]))
         session_span.set_attribute("session.outcome", final_state["outcome"] or "")
@@ -51,6 +53,7 @@ def run(question: str, *, output_dir: Path = OUTPUT_DIR) -> dict:
 
     print(f"\n=== Final answer ===\n{final_state['final_answer']}\n")
     print(f"Telemetry summary written to: {summary_path}")
+    print(f"Raw OTel spans written to: {spans_path}")
     print(f"Conversation log written to: {conversation_path}")
 
     return final_state
