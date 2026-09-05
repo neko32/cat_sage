@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Cat &amp; Sage — Dependencies</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+  h1 { margin-bottom: 0.2rem; }
+  p.sub { color: #555; margin-top: 0; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1.5rem; }
+  th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #ddd; vertical-align: top; }
+  th { background: #f4f4f4; }
+  code { background: #f0f0f0; padding: 0.1rem 0.35rem; border-radius: 3px; }
+  tr:hover { background: #fafafa; }
+</style>
+</head>
+<body>
+<h1>Cat &amp; Sage — Dependencies</h1>
+<p class="sub">Backend/CLI-only project (no frontend). Versions are what is pinned/installed as of this build.</p>
+
+<table>
+  <thead>
+    <tr><th>Library</th><th>Version</th><th>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>langgraph</code></td><td>1.2.11</td><td>Orchestrates the Cat/Judge/Sage state machine as a graph of nodes and conditional edges.</td></tr>
+    <tr><td><code>langchain-core</code></td><td>1.6.2</td><td>Message types (<code>SystemMessage</code>/<code>HumanMessage</code>) shared across agents.</td></tr>
+    <tr><td><code>langchain-openai</code></td><td>1.6.0</td><td><code>ChatOpenAI</code> client used to talk to the local LM Studio server (OpenAI-compatible API).</td></tr>
+    <tr><td><code>openai</code></td><td>3.8.0</td><td>Transitive dependency of <code>langchain-openai</code>; low-level OpenAI-compatible HTTP client.</td></tr>
+    <tr><td><code>pydantic</code></td><td>2.13.5</td><td>Structured output schema for Judge's strict pass/fail verdict.</td></tr>
+    <tr><td><code>opentelemetry-api</code></td><td>1.44.0</td><td>Tracing API used to instrument each round as a span.</td></tr>
+    <tr><td><code>opentelemetry-sdk</code></td><td>1.44.0</td><td>Tracer provider + custom exporter that writes the telemetry summary file.</td></tr>
+    <tr><td><code>pytest</code></td><td>9.1.1</td><td>Test runner for unit tests (agents, graph routing, telemetry export).</td></tr>
+    <tr><td><code>ruff</code></td><td>0.16.6</td><td>Linter + formatter for static code quality checks.</td></tr>
+  </tbody>
+</table>
+</body>
+</html>
